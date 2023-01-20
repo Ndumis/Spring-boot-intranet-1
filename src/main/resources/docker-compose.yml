@@ -1,0 +1,15 @@
+version: "2"
+services:
+  intranetmongodb:
+    image: mongo:latest
+    container_name: intranetmongodb
+    ports:
+      - 27017:27017
+
+  intranet-mongodb:
+    image: intranet-mongodb:1.0
+    container_name: intranet-mongodb
+    ports:
+      - 8080:8080
+    links:
+      - intranetmongodb
