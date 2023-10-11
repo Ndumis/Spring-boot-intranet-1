@@ -1,93 +1,80 @@
 package com.intranet.springboot.controller;
 
-import com.intranet.springboot.controller.Bean.AuthResponseBean;
 import com.intranet.springboot.controller.Bean.LoginBean;
-import com.intranet.springboot.model.domain.User;
+import com.intranet.springboot.model.User;
+import com.intranet.springboot.repository.AuthenticationRepository;
 import com.intranet.springboot.repository.UserRepository;
-import com.intranet.springboot.security.JwtTokenGenerator;
-import com.intranet.springboot.service.CustomUserDetails;
-import com.intranet.springboot.service.HourlyService;
-import com.intranet.springboot.util.CsvUtil;
+import com.intranet.springboot.service.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import javax.servlet.http.HttpServletRequest;
+import java.security.Principal;
+import java.util.Optional;
 
-@CrossOrigin(origins = "http://localhost:4200")
+@Slf4j
 @RequestMapping("/auth")
 @RestController
-public class AuthController {
+public class AuthController{
     private @Autowired AuthenticationManager authenticationManager;
-    private @Autowired CustomUserDetails userDetails;
+    private @Autowired AuthenticationRepository authenticationRepository;
     private @Autowired UserRepository userRepository;
-    private @Autowired JwtTokenGenerator jwtTokenGenerator;
-
+    private @Autowired UserService userService;
+    @Value("${server.servlet.session.timeout}")
+    private int sessionTimeout;
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody User user){
-        User userExist = userDetails.findUserByEmail(user.getEmail());
-        if(userExist != null){
-            return  new ResponseEntity<>("There is already a user registered with this username", HttpStatus.BAD_REQUEST);
+         Optional<User> userExist = userRepository.findByEmail(user.getEmail());
+        if(userExist.isPresent()){
+            return  new ResponseEntity<>("There is already a user registered with this email " + user.getEmail(), HttpStatus.BAD_REQUEST);
         }else {
-            userDetails.saveUser(user);
-            return new ResponseEntity<>("User has been registered successfully", HttpStatus.OK);
+            User user1 =  userService.saveUser(user);
+            if(user1 == null){
+                return new ResponseEntity<>(user.getEmail() + " User has not been registered", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+            return new ResponseEntity<>(user.getEmail() + " User has been registered successfully", HttpStatus.OK);
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseBean>login(@RequestBody LoginBean loginBean){
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginBean.getUsername(),
-                        loginBean.getPassword()));
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = jwtTokenGenerator.generateToken(authentication);
-        return new ResponseEntity<>(new AuthResponseBean(token), HttpStatus.OK);
+    public LoginBean login(@RequestBody LoginBean loginBean, Principal principal, HttpServletRequest request){
+        log.info("successfully logged in: [{}]", loginBean.getUsername());
+        try {
+            logout();
+        } catch (Throwable e) {
+            log.error("failed to logout : " + e.getMessage(), e);
+        }
+        LoginBean bean = new LoginBean();
+        return bean;
     }
 
-    @GetMapping("/all")
-    public List<User> getUsers(){
-        return userRepository.findAll();
+    protected String getIp(HttpServletRequest request) {
+        return Optional.ofNullable(request.getHeader("X-FORWARDED-FOR")).orElse(request.getRemoteAddr());
     }
 
-    @DeleteMapping("/delete")
-    public ResponseEntity<String> deleteUser(){
-        userRepository.deleteAll();
-        return  new ResponseEntity<>("Users deleted successfully", HttpStatus.OK);
+    @GetMapping(value = "/loggedin")
+    public boolean loggedIn() {
+
+        return true;
+
     }
 
-
-
-
-    ////////////////TESTING//////////////////////////////
-    private @Autowired HourlyService service;
-    private @Autowired CsvUtil csvUtil;
-    @GetMapping("/cases/download-hourly-progress/{date}")
-    public void downloadHourlyProgressReport(@PathVariable(value = "date") @DateTimeFormat(pattern = "yyyy-MM-dd") Date date,
-                                             HttpServletResponse response) throws IOException {
-        List<String[]> csvHeader = new ArrayList<>();
-        csvHeader = service.buildHourlyProgressReportHeader();
-        csvHeader.add(service.buildHourlyProgressReportBody());
-        String content = csvUtil.convertList(csvHeader);
-        csvUtil.fileResponse(response, content, "HourlyProgressReport", "text/csv");
+    @GetMapping(value = "/roles")
+    public User.Role[] getRoles() throws Exception {
+        return User.Role.values();
     }
 
-    @GetMapping("/cars")
-    public ResponseEntity<?> getCars(){
-        return ResponseEntity.ok(service.findAll());
+    @GetMapping(value = "/logout")
+    public boolean logout() {
+
+        return true;
+
     }
 
-
-
-    ////////////////TESTING//////////////////////////////
 }
