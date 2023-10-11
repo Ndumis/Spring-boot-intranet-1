@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 @Data
 public class User implements UserDetails {
-    public enum Role {Admin, User}
+    public enum Role {Admin, ItManager, ItEmployee, HrManager, HrEmployee, User}
     public enum ACCOUNT_STATUS {ACTIVE, LOCKED, BLOCKED}
     @Id
     private  String id;

@@ -33,6 +33,11 @@ public class UserService {
                 .orElseThrow(()-> new UserNotFoundException("User by id "+ id + " was not found"));
     }
 
+    public User getUserByEmail(String email){
+        return userRepository.findByEmail(email)
+                .orElseThrow(()-> new UserNotFoundException("User by id "+ email + " was not found"));
+    }
+
     public String deleteUserById(String id){
         userRepository.deleteById(id);
         return "Users deleted successfully";

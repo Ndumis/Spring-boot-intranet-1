@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.Date;
 import java.util.List;
 @RequestMapping("/user")
@@ -16,6 +17,14 @@ import java.util.List;
 public class UserController {
     private @Autowired UserService userService;
 
+    @GetMapping("")
+    public User getUsers(Principal principal){
+        log.info("Get user..");
+        if (principal != null) {
+            return userService.getUserByEmail(principal.getName());
+        }
+        return new User();
+    }
     @GetMapping("/all")
     public List<User> getUsers(){
         log.info("Get all users");

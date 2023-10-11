@@ -4,13 +4,17 @@ import com.intranet.springboot.controller.Bean.LoginBean;
 import com.intranet.springboot.model.User;
 import com.intranet.springboot.repository.AuthenticationRepository;
 import com.intranet.springboot.repository.UserRepository;
+import com.intranet.springboot.security.AuthToken;
 import com.intranet.springboot.service.UserService;
+import com.intranet.springboot.util.AuthTokenUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -34,6 +38,7 @@ public class AuthController{
         if(userExist.isPresent()){
             return  new ResponseEntity<>("There is already a user registered with this email " + user.getEmail(), HttpStatus.BAD_REQUEST);
         }else {
+            user.setAccountStatus(User.ACCOUNT_STATUS.ACTIVE);
             User user1 =  userService.saveUser(user);
             if(user1 == null){
                 return new ResponseEntity<>(user.getEmail() + " User has not been registered", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -44,9 +49,15 @@ public class AuthController{
 
     @PostMapping("/login")
     public LoginBean login(@RequestBody LoginBean loginBean, Principal principal, HttpServletRequest request){
-        log.info("successfully logged in: [{}]", loginBean.getUsername());
         try {
-            logout();
+            if (principal != null) {
+                log.info("successfully logged in: [{}]", loginBean.getUsername());
+                User user = userService.getUserByEmail(principal.getName());
+                //Optional<AuthToken> token = AuthTokenUtil.getAuthToken(authenticationRepository.findByUserId(new ObjectId(user.getId())));
+                //token.get().setOriginIp(request.getRemoteAddr());
+                //authenticationRepository.save(token.get());
+                request.getSession(false).setMaxInactiveInterval(sessionTimeout);
+            }
         } catch (Throwable e) {
             log.error("failed to logout : " + e.getMessage(), e);
         }
@@ -58,22 +69,21 @@ public class AuthController{
         return Optional.ofNullable(request.getHeader("X-FORWARDED-FOR")).orElse(request.getRemoteAddr());
     }
 
-    @GetMapping(value = "/loggedin")
-    public boolean loggedIn() {
+    @PostMapping(value = "/logout")
+    public ResponseEntity<?> logout(Principal principal, HttpServletRequest request) {
+        if (principal != null) {
+            User user = userService.getUserByEmail(principal.getName());
 
-        return true;
-
-    }
-
-    @GetMapping(value = "/roles")
-    public User.Role[] getRoles() throws Exception {
-        return User.Role.values();
-    }
-
-    @GetMapping(value = "/logout")
-    public boolean logout() {
-
-        return true;
+            /**Optional<AuthToken> token = AuthTokenUtil.getAuthToken(authenticationRepository.findByUserId(new ObjectId(user.getId())));
+            if (token.isPresent()) {
+                token.get().setValid(false);
+                authenticationRepository.delete(token.get());
+            }*/
+        }
+        principal = null;
+        request.getSession().removeAttribute("Authorized");
+        SecurityContextHolder.clearContext();
+        return ResponseEntity.ok().build();
 
     }
 
