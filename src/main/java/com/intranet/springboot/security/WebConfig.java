@@ -67,8 +67,6 @@ public class WebConfig {
                 .build();
     }
 
-
-
     @Bean
     public CorsConfigurationSource corsConfiguration(){
         CorsConfiguration corsConfiguration = new CorsConfiguration();
